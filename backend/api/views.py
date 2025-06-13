@@ -16,30 +16,13 @@ from api.serializers import (
     VehicleSerializer,
     LoginSerializer,
     CitySerializer,
-    DispatcherAcceptSerializer, DispatcherRejectSerializer
+    DispatcherAcceptSerializer, DispatcherRejectSerializer,
+    DispatcherShipmentSerializer, ClientShipmentSerializer
 )
 
 from .permissions import IsClient, IsDispatcher
 
 User = get_user_model()
-
-# class RegistrationViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin):
-#     serializer_class = UserRegistrationSerializer
-#     permission_classes = []
-
-# class LoginViewSet(viewsets.ViewSet):
-#     # Можно использовать стандартный obtain_auth_token, но если нужен кастом:
-#     @action(detail=False, methods=['post'], permission_classes=[])
-#     def post(self, request):
-#         # предполагаем, что передаются email и password
-#         from django.contrib.auth import authenticate
-#         email = request.data.get('email')
-#         password = request.data.get('password')
-#         user = authenticate(request, username=email, password=password)
-#         if not user:
-#             return Response({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
-#         token, created = Token.objects.get_or_create(user=user)
-#         return Response({'token': token.key})
 
 class RegisterView(generics.CreateAPIView):
     serializer_class = UserSerializer
@@ -100,7 +83,6 @@ class ClientOrderViewSet(viewsets.GenericViewSet,
         serializer.save(client=self.request.user)
 
 class DispatcherOrderViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
-    #serializer_class = DispatcherOrderSerializer
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated, IsDispatcher]
     queryset = Order.objects.all()
@@ -150,6 +132,73 @@ class DispatcherOrderViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mix
         order.dispatcher = request.user
         order.save()
         return Response({'status': Order.status})
+
+class DispatcherShipmentViewSet(viewsets.GenericViewSet,
+                                mixins.ListModelMixin,
+                                mixins.RetrieveModelMixin,
+                                mixins.UpdateModelMixin):
+    serializer_class = DispatcherShipmentSerializer
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, IsDispatcher]
+
+    def get_queryset(self):
+        orders = Order.objects.filter(dispatcher=self.request.user)
+        return Shipment.objects.filter(order__in=orders)
+    
+
+    def partial_update(self, request, *args, **kwargs):
+        # Разрешено менять только статус
+        data = request.data
+        if set(data.keys()) - {'status'}:
+            return Response({'detail': 'Можно обновлять только status'}, status=status.HTTP_400_BAD_REQUEST)
+
+        instance = self.get_object()
+        new_status = request.data.get('status')
+        valid = dict(Shipment.StatusChoices.choices).keys()
+        if new_status not in valid:
+            return Response({"status": "Недопустимый статус."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if instance.status != Shipment.StatusChoices.IN_PROGRESS:
+            return Response({"status": f"Разрешено менять только доставки со статусом {Shipment.StatusChoices.IN_PROGRESS}"},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # if instance.status != 'Delivered' and new_status == 'Delivered':
+        #     with transaction.atomic():
+        #         enrollment = instance.enrollment
+        #         enrollment.is_cancelled = True
+        #         enrollment.save(update_fields=['is_cancelled'])
+        #         instance.status = new_status
+        #         instance.save(update_fields=['status'])
+        #         return Response(self.get_serializer(instance).data, status=status.HTTP_200_OK)
+        instance.status = new_status
+        instance.save(update_fields=['status'])
+        return Response(self.get_serializer(instance).data)
+
+
+class ClientShipmentViewSet(viewsets.GenericViewSet,
+                            mixins.ListModelMixin,
+                            mixins.RetrieveModelMixin,
+                            mixins.UpdateModelMixin):
+    serializer_class = ClientShipmentSerializer
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated, IsClient]
+
+    def get_queryset(self):
+        orders = Order.objects.filter(client=self.request.user)
+        return Shipment.objects.filter(order__in=orders)
+    
+    def partial_update(self, request, *args, **kwargs):
+        # Оставление отзыва
+        data = request.data
+        if set(data.keys()) - {'review_rating', 'review_text'}:
+            return Response({'detail': 'Можно обновлять только review_rating и review_text.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        instance = self.get_object()
+        if instance.status != Shipment.StatusChoices.DELIVERED:
+            return Response({'detail': 'Добавлять отзывы можно только к выполненным доставкам.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        return super().partial_update(request, *args, **kwargs)
+    
     
 
 class DriverViewSet(viewsets.ModelViewSet):
@@ -168,6 +217,12 @@ class CityViewSet(viewsets.ModelViewSet):
     queryset = City.objects.all()
     serializer_class = CitySerializer
     authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated, (IsDispatcher | IsClient)]
-    # для клиента только GET
+
+    def get_permissions(self):
+        # для клиента только GET
+        if self.action in ["list", "retrieve"]:
+            permission_classes =  [(IsDispatcher | IsClient)]
+        else:
+            permission_classes = [IsDispatcher]
+        return [perm() for perm in permission_classes]
 

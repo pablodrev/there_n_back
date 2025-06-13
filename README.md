@@ -1,15 +1,16 @@
 # There n Back - Logistics Company
 
 ## TODO:
-1. Эндпоинты для Shipment
-2. Добавить возможность отзывов
-3. Добавить ограничения на CityViewSet для клиента
+1. Добавить в Shipment время прибытия, цену, статус ✅
+2. Эндпоинты для Shipment ✅
+3. Добавить возможность отзывов ✅
+4. Добавить ограничения на CityViewSet для клиента ✅
 
 ## Гайд как запустить backend
 ### 1. Установи [Docker Desktop](https://www.docker.com/)
 ### 2. Скопируй репозиторий к себе в нужную папочку
 ```
-git clone https://github.com/pablodrev/there_n_back.git
+git clone https://github.com/pablodrev/there_n_back.git --config core.autocrlf=input
 ```
 ### 3. Создай виртуальное окружение Python
 

@@ -141,3 +141,22 @@ class CitySerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('city_id',)
 
+class DispatcherShipmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model =  Shipment
+        fields = '__all__'
+        read_only_fields = (
+            'shipment_id', 'order', 'driver',
+            'vehicle', 'price', 'arrival_time', 'review_rating',
+            'review_text', 'review_created_at'
+        )
+
+class ClientShipmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model =  Shipment
+        fields = '__all__'
+        read_only_fields = (
+            'shipment_id', 'order', 'driver',
+            'vehicle', 'price', 'arrival_time', 'status'
+        )
+

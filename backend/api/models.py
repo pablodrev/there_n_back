@@ -146,23 +146,15 @@ class Driver(models.Model):
 
 
 class Shipment(models.Model):
+    class StatusChoices(models.TextChoices):
+        IN_PROGRESS = 'In Progress'
+        DELIVERED = 'Delivered'
+        DELAYED = 'Delayed'
+
     shipment_id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
         editable=False,
-    )
-    review_rating = models.IntegerField(
-        blank=True,
-        null=True,
-    )
-    review_text = models.TextField(
-        blank=True,
-        null=True,
-    )
-    review_created_at = models.DateTimeField(
-        blank=True,
-        null=True,
-        auto_now_add=True,
     )
 
     order = models.OneToOneField(
@@ -179,6 +171,26 @@ class Shipment(models.Model):
         Vehicle,
         on_delete=models.CASCADE,
         related_name='shipments',
+    )
+    arrival_time = models.DateTimeField()
+    price = models.DecimalField(max_digits=10, decimal_places=3)
+    status = models.CharField(
+        choices=StatusChoices.choices,
+        default=StatusChoices.IN_PROGRESS
+    )
+
+    review_rating = models.IntegerField(
+        blank=True,
+        null=True,
+    )
+    review_text = models.TextField(
+        blank=True,
+        null=True,
+    )
+    review_created_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        auto_now=True,
     )
 
     class Meta:

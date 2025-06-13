@@ -5,24 +5,24 @@ from api.views import (
     ClientOrderViewSet, DispatcherOrderViewSet,
     DriverViewSet, VehicleViewSet,
     RegisterView, LoginView,
-    CityViewSet
+    CityViewSet,
+    DispatcherShipmentViewSet,
+    ClientShipmentViewSet
 )
 from rest_framework.authtoken import views as drf_auth_views
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from drf_spectacular.utils import extend_schema
 
 router = DefaultRouter()
-#router.register(r'register', RegistrationViewSet, basename='register')
-# Для логина можно либо:
-#router.register(r'login', LoginViewSet, basename='login')
-# Или подключить стандартный:
-# path('api-token-auth/', drf_auth_views.obtain_auth_token)
 
 router.register(r'client/orders', ClientOrderViewSet, basename='client-orders')
 router.register(r'dispatcher/orders', DispatcherOrderViewSet, basename='dispatcher-orders')
 router.register(r'drivers', DriverViewSet)
 router.register(r'vehicles', VehicleViewSet)
 router.register(r'cities', CityViewSet)
+router.register(r'dispatcher/shipments', DispatcherShipmentViewSet, basename='dispatcher-shipments')
+router.register(r'client/shipments', ClientShipmentViewSet, basename='client-shipments')
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
