@@ -97,6 +97,8 @@ class DispatcherAcceptSerializer(serializers.Serializer):
     order_id = serializers.UUIDField()
     driver = serializers.UUIDField()
     vehicle = serializers.CharField(max_length=9)
+    arrival_time = serializers.DateTimeField()
+    price = serializers.DecimalField(max_digits=10, decimal_places=3)
 
 class DispatcherRejectSerializer(serializers.Serializer):
     order_id = serializers.UUIDField()
@@ -105,30 +107,15 @@ class DispatcherRejectSerializer(serializers.Serializer):
 class DriverSerializer(serializers.ModelSerializer):
     class Meta:
         model = Driver
-        fields = (
-            "driver_id",
-            "first_name",
-            "last_name",
-            "second_name",
-            "B",
-            "BE",
-            "C",
-            "C1",
-            "CE",
-            "C1E",
-        )
-        read_only_fields = ("driver_id",)
+        fields = '__all__'
+        read_only_fields = ('driver_id', 'is_available')
 
 
 class VehicleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vehicle
-        fields = (
-            "license_plate",
-            "transport_type",
-            "max_volume",
-            "max_weight",            
-        )
+        fields = '__all__'
+        read_only_fields = ('is_available',)
 
 class CitySerializer(serializers.ModelSerializer):
     class Meta:

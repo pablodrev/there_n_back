@@ -107,21 +107,23 @@ class DispatcherOrderViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mix
             vehicle = Vehicle.objects.get(pk=vehicle_id)
         except (Driver.DoesNotExist, Vehicle.DoesNotExist):
             return Response({'error': 'Driver or Vehicle not found'}, status=status.HTTP_400_BAD_REQUEST)
-        # Проверяем availability и лицензии:
+        # Проверяем availability:
         if not driver.is_available or not vehicle.is_available:
             return Response({'error': 'Driver or Vehicle not available'}, status=status.HTTP_400_BAD_REQUEST)
+        arrival_time = request.data.get('arrival_time')
+        price = request.data.get('price')
         # После проверок:
         order.status = Order.StatusChoices.CONFIRMED
         order.dispatcher = request.user
         order.save()
         # создаём Shipment
-        Shipment.objects.create(order=order, driver=driver, vehicle=vehicle)
+        Shipment.objects.create(order=order, driver=driver, vehicle=vehicle, arrival_time=arrival_time, price=price)
         # отмечаем их как занятые
         driver.is_available = False
         driver.save()
         vehicle.is_available = False
         vehicle.save()
-        return Response({'status': Order.status})
+        return Response({'status': order.status})
 
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
@@ -131,12 +133,9 @@ class DispatcherOrderViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mix
         order.status = Order.StatusChoices.CANCELLED
         order.dispatcher = request.user
         order.save()
-        return Response({'status': Order.status})
+        return Response({'status': order.status})
 
-class DispatcherShipmentViewSet(viewsets.GenericViewSet,
-                                mixins.ListModelMixin,
-                                mixins.RetrieveModelMixin,
-                                mixins.UpdateModelMixin):
+class DispatcherShipmentViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
     serializer_class = DispatcherShipmentSerializer
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated, IsDispatcher]
@@ -145,34 +144,53 @@ class DispatcherShipmentViewSet(viewsets.GenericViewSet,
         orders = Order.objects.filter(dispatcher=self.request.user)
         return Shipment.objects.filter(order__in=orders)
     
-
-    def partial_update(self, request, *args, **kwargs):
-        # Разрешено менять только статус
-        data = request.data
-        if set(data.keys()) - {'status'}:
-            return Response({'detail': 'Можно обновлять только status'}, status=status.HTTP_400_BAD_REQUEST)
-
-        instance = self.get_object()
-        new_status = request.data.get('status')
-        valid = dict(Shipment.StatusChoices.choices).keys()
-        if new_status not in valid:
-            return Response({"status": "Недопустимый статус."},
+    @action(detail=True, methods=['post'])
+    def deliver(self, request, pk=None):
+        shipment = self.get_object()
+        if shipment.status != Shipment.StatusChoices.IN_PROGRESS:
+            return Response({'error': f"Разрешено обновлять только доставки со статусом {Shipment.StatusChoices.IN_PROGRESS}"},
                             status=status.HTTP_400_BAD_REQUEST)
-        if instance.status != Shipment.StatusChoices.IN_PROGRESS:
-            return Response({"status": f"Разрешено менять только доставки со статусом {Shipment.StatusChoices.IN_PROGRESS}"},
-                            status=status.HTTP_400_BAD_REQUEST)
+        shipment.status = Shipment.StatusChoices.DELIVERED
+        shipment.save(update_fields=['status'])
 
-        # if instance.status != 'Delivered' and new_status == 'Delivered':
-        #     with transaction.atomic():
-        #         enrollment = instance.enrollment
-        #         enrollment.is_cancelled = True
-        #         enrollment.save(update_fields=['is_cancelled'])
-        #         instance.status = new_status
-        #         instance.save(update_fields=['status'])
-        #         return Response(self.get_serializer(instance).data, status=status.HTTP_200_OK)
-        instance.status = new_status
-        instance.save(update_fields=['status'])
-        return Response(self.get_serializer(instance).data)
+        driver = shipment.order.driver
+        driver.is_available = True
+        driver.save(update_fields=['is_available'])
+
+        vehicle = shipment.order.vehicle
+        vehicle.is_available = True
+        vehicle.save(update_fields=['is_available'])
+        return Response({'status': shipment.status})
+
+    @action(detail=True, methods=['post'])
+    def delay(self, request, pk=None):
+        shipment = self.get_object()
+        if shipment.status != Shipment.StatusChoices.IN_PROGRESS:
+            return Response({'error': f"Разрешено обновлять только доставки со статусом {Shipment.StatusChoices.IN_PROGRESS}"},
+                            status=status.HTTP_400_BAD_REQUEST)
+        shipment.status = Shipment.StatusChoices.DELAYED
+        shipment.save()
+        return Response({'status': shipment.status})
+    
+
+    # def partial_update(self, request, *args, **kwargs):
+    #     # Разрешено менять только статус
+    #     data = request.data
+    #     if set(data.keys()) - {'status'}:
+    #         return Response({'detail': 'Можно обновлять только status'}, status=status.HTTP_400_BAD_REQUEST)
+
+    #     instance = self.get_object()
+    #     new_status = request.data.get('status')
+    #     valid = dict(Shipment.StatusChoices.choices).keys()
+    #     if new_status not in valid:
+    #         return Response({"status": "Недопустимый статус."},
+    #                         status=status.HTTP_400_BAD_REQUEST)
+    #     if instance.status != Shipment.StatusChoices.IN_PROGRESS:
+    #         return Response({"status": f"Разрешено менять только доставки со статусом {Shipment.StatusChoices.IN_PROGRESS}"},
+    #                         status=status.HTTP_400_BAD_REQUEST)
+    #     instance.status = new_status
+    #     instance.save(update_fields=['status'])
+    #     return Response(self.get_serializer(instance).data)
 
 
 class ClientShipmentViewSet(viewsets.GenericViewSet,
