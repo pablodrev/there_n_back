@@ -100,9 +100,15 @@ class DispatcherAcceptSerializer(serializers.Serializer):
     arrival_time = serializers.DateTimeField()
     price = serializers.DecimalField(max_digits=10, decimal_places=3)
 
+
 class DispatcherRejectSerializer(serializers.Serializer):
     order_id = serializers.UUIDField()
 
+class DispatcherDeliverSerializer(serializers.Serializer):
+    shipment_id = serializers.UUIDField()
+
+class DispatcherDelaySerializer(serializers.Serializer):
+    shipment_id = serializers.UUIDField()
 
 class DriverSerializer(serializers.ModelSerializer):
     class Meta:

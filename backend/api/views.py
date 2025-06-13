@@ -17,10 +17,12 @@ from api.serializers import (
     LoginSerializer,
     CitySerializer,
     DispatcherAcceptSerializer, DispatcherRejectSerializer,
-    DispatcherShipmentSerializer, ClientShipmentSerializer
+    DispatcherShipmentSerializer, ClientShipmentSerializer,
+    DispatcherDeliverSerializer, DispatcherDelaySerializer
 )
 
 from .permissions import IsClient, IsDispatcher
+from datetime import datetime
 
 User = get_user_model()
 
@@ -136,9 +138,15 @@ class DispatcherOrderViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mix
         return Response({'status': order.status})
 
 class DispatcherShipmentViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin):
-    serializer_class = DispatcherShipmentSerializer
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated, IsDispatcher]
+
+    def get_serializer_class(self):
+        if self.action == 'deliver':
+            return DispatcherDeliverSerializer
+        elif self.action == 'delay':
+            return DispatcherDelaySerializer
+        return DispatcherShipmentSerializer
 
     def get_queryset(self):
         orders = Order.objects.filter(dispatcher=self.request.user)
@@ -153,11 +161,11 @@ class DispatcherShipmentViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, 
         shipment.status = Shipment.StatusChoices.DELIVERED
         shipment.save(update_fields=['status'])
 
-        driver = shipment.order.driver
+        driver = shipment.driver
         driver.is_available = True
         driver.save(update_fields=['is_available'])
 
-        vehicle = shipment.order.vehicle
+        vehicle = shipment.vehicle
         vehicle.is_available = True
         vehicle.save(update_fields=['is_available'])
         return Response({'status': shipment.status})
@@ -214,7 +222,8 @@ class ClientShipmentViewSet(viewsets.GenericViewSet,
         instance = self.get_object()
         if instance.status != Shipment.StatusChoices.DELIVERED:
             return Response({'detail': 'Добавлять отзывы можно только к выполненным доставкам.'}, status=status.HTTP_400_BAD_REQUEST)
-
+        instance.review_created_at = datetime.now()
+        instance.save()
         return super().partial_update(request, *args, **kwargs)
     
     

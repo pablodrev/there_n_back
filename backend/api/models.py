@@ -190,7 +190,6 @@ class Shipment(models.Model):
     review_created_at = models.DateTimeField(
         blank=True,
         null=True,
-        auto_now=True,
     )
 
     class Meta:
