@@ -136,6 +136,7 @@ class CitySerializer(serializers.ModelSerializer):
 
 class DispatcherShipmentSerializer(serializers.ModelSerializer):
     driver = DriverSerializer(read_only=True)
+    order = OrderSerializer(read_only=True)
     class Meta:
         model =  Shipment
         fields = '__all__'
