@@ -135,6 +135,7 @@ class CitySerializer(serializers.ModelSerializer):
         read_only_fields = ('city_id',)
 
 class DispatcherShipmentSerializer(serializers.ModelSerializer):
+    driver = DriverSerializer(read_only=True)
     class Meta:
         model =  Shipment
         fields = '__all__'
